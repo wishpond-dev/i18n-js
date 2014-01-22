@@ -103,9 +103,9 @@ module I18n
       FileUtils.mkdir_p File.dirname(file)
 
       File.open(file, "w+") do |f|
-        f << %(I18n.translations = );
-        f << translations.to_json
-        f << %(;)
+        translations.each do |locale, values|
+          f << %(I18n.translations[#{locale.to_json}] = #{values.to_json};)
+        end
       end
     end
 

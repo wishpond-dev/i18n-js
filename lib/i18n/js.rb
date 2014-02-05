@@ -35,7 +35,7 @@ module I18n
 
     def self.segments_per_locale(pattern, scope)
       I18n.available_locales.each_with_object({}) do |locale, segments|
-        result = scoped_translations("#{locale}.#{scope}")
+        result = scoped_translations(locale, scope)
         next if result.empty?
 
         segment_name = ::I18n.interpolate(pattern,{:locale => locale})
@@ -109,11 +109,24 @@ module I18n
       end
     end
 
-    def self.scoped_translations(scopes) # :nodoc:
+    def self.scoped_translations(locale, scopes) # :nodoc:
       result = {}
 
-      [scopes].flatten.each do |scope|
-        deep_merge! result, filter(translations, scope)
+      [*scopes].each do |scope|
+        begin
+          keys = I18n.normalize_keys(locale, scope, [])
+          scoped_translations = I18n.translate!(scope, locale: locale)
+          translations = keys.reverse.inject(scoped_translations) do |data, key|
+            {key => data}
+          end
+          deep_merge! result, translations
+        rescue I18n::MissingTranslationData => e
+          if defined? Rails
+            Rails.logger.warn "[I18n::JS] #{e.message}"
+          else
+            puts "[I18n::JS] #{e.message}"
+          end
+        end
       end
 
       result

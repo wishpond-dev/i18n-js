@@ -52,13 +52,13 @@ module I18n
     end
 
     def self.configured_segments
-      config[:translations].each_with_object({}) do |options, segments|
-        options.reverse_merge!(:only => "*")
-        if options[:file] =~ ::I18n::INTERPOLATION_PATTERN
-          segments.merge!(segments_per_locale(options[:file], options[:only]))
+      config["translations"].each_with_object({}) do |options, segments|
+        options = { "only" => "*" }.merge(options)
+        if options["file"] =~ ::I18n::INTERPOLATION_PATTERN
+          segments.merge!(segments_per_locale(options["file"], options["only"]))
         else
-          result = segment_for_scope(options[:only])
-          segments[options[:file]] = result unless result.empty?
+          result = segment_for_scope(options["only"])
+          segments[options["file"]] = result unless result.empty?
         end
       end
     end
@@ -76,7 +76,7 @@ module I18n
     end
 
     def self.translation_segments
-      if config? && config[:translations]
+      if config? && config["translations"]
         configured_segments
       else
         {"#{export_dir}/translations.js" => translations}
@@ -87,7 +87,7 @@ module I18n
     # custom output directory
     def self.config
       if config?
-        (YAML.load_file(config_file) || {}).with_indifferent_access
+        YAML.load_file(config_file) || {}
       else
         {}
       end

@@ -1,5 +1,7 @@
 require "i18n"
 require "FileUtils" unless defined?(FileUtils)
+require "active_support/buffered_logger"
+require "etc"
 
 module I18n
   module JS
@@ -25,11 +27,46 @@ module I18n
       @config_file ||= "config/i18n-js.yml"
     end
 
+    def self.log
+      # We don't know where the application is actually running from so we're
+      # going to make a couple of guesses.
+      @log ||=
+        begin
+          log_path =
+            case Etc.getlogin
+            when "vagrant"
+              "/vagrant/wishpondv1/log/i18n_js.log"
+            else
+              "/home/ubuntu/app/current/log/i18n_js.log"
+            end
+
+          ActiveSupport::BufferedLogger.new(log_path)
+        end
+
+    end
+
+    def self.exception_logged?
+      @exception_logged || false
+    end
+
+    def self.log_exception(e)
+      @exception_logged = true
+      log.fatal "#{e.class.name}: #{e.message}\n  #{e.backtrace[0..10].join("\n  ")}"
+    end
+
     # Export translations to JavaScript, considering settings
     # from configuration file
     def self.export
-      translation_segments.each do |filename, translations|
-        save(translations, filename)
+      begin
+        log.info "Starting export"
+
+        translation_segments.each do |filename, translations|
+          save(translations, filename)
+        end
+
+        log.info "Export ended"
+      rescue => e
+        log_exception e
       end
     end
 
@@ -100,12 +137,26 @@ module I18n
 
     # Convert translations to JSON string and save file.
     def self.save(translations, file)
+      log.info "#{file} before: #{describe_export(file).inspect}"
       FileUtils.mkdir_p File.dirname(file)
 
       File.open(file, "w+") do |f|
         translations.each do |locale, values|
           f << %(I18n.translations[#{locale.to_json}] = #{values.to_json};)
         end
+      end
+
+      log.info "#{file} after: #{describe_export(file).inspect}"
+    end
+
+    def self.describe_export(file)
+      if File.exist?(file)
+        {
+          size: File.size(file),
+          mtime: File.mtime(file)
+        }
+      else
+        {}
       end
     end
 
@@ -121,6 +172,8 @@ module I18n
           end
           deep_merge! result, translations
         rescue I18n::MissingTranslationData => e
+          log_exception e
+
           if defined? Rails
             Rails.logger.warn "[I18n::JS] #{e.message}"
           else
@@ -153,10 +206,11 @@ module I18n
 
     # Initialize and return translations
     def self.translations
-      ::I18n.backend.instance_eval do
-        init_translations unless initialized?
-        translations
-      end
+      @translations ||=
+        ::I18n.backend.instance_eval do
+          init_translations unless initialized?
+          translations
+        end
     end
 
     def self.deep_merge(target, hash) # :nodoc:

@@ -28,21 +28,7 @@ module I18n
     end
 
     def self.log
-      # We don't know where the application is actually running from so we're
-      # going to make a couple of guesses.
-      @log ||=
-        begin
-          log_path =
-            case Etc.getlogin
-            when "vagrant"
-              "/vagrant/wishpondv1/log/i18n_js.log"
-            else
-              "/home/ubuntu/app/current/log/i18n_js.log"
-            end
-
-          ActiveSupport::BufferedLogger.new(log_path)
-        end
-
+      @log ||= ActiveSupport::BufferedLogger.new("log/i18n_js.log")
     end
 
     def self.exception_logged?

@@ -132,6 +132,9 @@ module I18n
         end
       end
 
+      # Now create a gzipped version of the same file
+      %x(gzip --best < #{file} > #{file}.gz)
+
       log.info "#{file} after: #{describe_export(file).inspect}"
     end
 
